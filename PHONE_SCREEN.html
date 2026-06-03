@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Pick Up — Driver</title>
+
+<script>
+  const FIREBASE_CONFIG = {
+    apiKey:            "AIzaSyC-G7wkMqRx-SdGuyjSJ_E_3LEjpo2M6VI",
+    authDomain:        "pickup-878ea.firebaseapp.com",
+    databaseURL:       "https://pickup-878ea-default-rtdb.firebaseio.com",
+    projectId:         "pickup-878ea",
+    storageBucket:     "pickup-878ea.firebasestorage.app",
+    messagingSenderId: "1097263763609",
+    appId:             "1:1097263763609:web:95d9548e7bae9529a7a808"
+  };
+  const GOOGLE_MAPS_KEY = "AIzaSyCrD15hJdhyU1tsRUJvByvzQ-Krup8Wt40";
+</script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap');
+@import url('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css');
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; width: 100%; font-family: 'DM Sans', sans-serif; background: #0a0a0a; overflow: hidden; }
+.screen { width: 100%; height: 100%; background: #f9f9f7; display: flex; flex-direction: column; max-width: 430px; margin: 0 auto; }
+.status-bar { background: #0a0a0a; color: #fff; display: flex; justify-content: space-between; align-items: center; padding: 12px 22px 8px; font-size: 13px; font-weight: 500; }
+.app-header { background: #0a0a0a; padding: 10px 22px 16px; display: flex; align-items: center; justify-content: space-between; }
+.app-logo { font-size: 26px; font-weight: 600; color: #fff; letter-spacing: -0.03em; }
+.app-logo span { color: #00c853; }
+.header-sub { font-size: 11px; color: #666; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.05em; }
+.online-badge { background: #00c853; color: #fff; font-size: 12px; font-weight: 600; padding: 5px 13px; border-radius: 20px; letter-spacing: 0.04em; }
+
+.map-area { height: 200px; position: relative; overflow: hidden; flex-shrink: 0; background: #141824; }
+.map-area iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; }
+canvas#cinemap { position: absolute; inset: 0; width: 100%; height: 100%; display: none; }
+
+.map-overlay-label {
+  position: absolute; bottom: 8px; left: 8px; z-index: 10;
+  background: rgba(10,10,10,0.82); color: #fff;
+  font-size: 11px; font-weight: 500; padding: 4px 10px;
+  border-radius: 6px; letter-spacing: 0.02em;
+  backdrop-filter: blur(6px);
+  max-width: 75%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.eta-chip {
+  position: absolute; bottom: 8px; right: 8px; z-index: 10;
+  background: #00c853; color: #fff;
+  font-size: 11px; font-weight: 700; padding: 4px 10px;
+  border-radius: 6px; letter-spacing: 0.02em;
+  display: none;
+}
+.closeup-pill {
+  position: absolute; top: 8px; right: 8px; z-index: 10;
+  background: rgba(0,200,83,0.18); border: 1px solid rgba(0,200,83,0.4); color: #00c853;
+  font-size: 9px; font-weight: 700; padding: 3px 9px;
+  border-radius: 20px; letter-spacing: 0.07em; text-transform: uppercase;
+  display: none;
+}
+
+.trip-card { background: #fff; padding: 16px 22px; border-bottom: 0.5px solid #eee; }
+.trip-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+.passenger-name { font-size: 22px; font-weight: 600; color: #0a0a0a; letter-spacing: -0.03em; }
+.passenger-meta { font-size: 13px; color: #888; margin-top: 3px; }
+.star-rating { display: flex; align-items: center; gap: 4px; font-size: 18px; font-weight: 500; color: #0a0a0a; }
+.star { color: #f4b942; }
+.trip-details { display: flex; flex-direction: column; gap: 7px; }
+.trip-detail { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #444; }
+.detail-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.dot-green { background: #00c853; } .dot-red { background: #e53935; }
+
+.earnings-bar { background: #0a0a0a; padding: 12px 22px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+.earn-item { text-align: center; }
+.earn-val { font-size: 18px; font-weight: 600; color: #fff; letter-spacing: -0.02em; }
+.earn-label { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+.earn-divider { width: 0.5px; height: 32px; background: #333; }
+
+.alerts-section { flex: 1; padding: 14px 22px; overflow-y: auto; background: #f9f9f7; }
+.alerts-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.alerts-title { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.07em; }
+.alert-count-badge { background: #e53935; color: #fff; font-size: 10px; font-weight: 700; min-width: 20px; height: 20px; border-radius: 10px; display: flex; align-items: center; justify-content: center; padding: 0 5px; }
+
+.alert-item { background: #fff; border-radius: 14px; padding: 13px 16px; margin-bottom: 10px; border: 0.5px solid #eee; display: flex; gap: 12px; align-items: flex-start; }
+.alert-item.new-alert { animation: flashIn 0.6s ease; }
+@keyframes flashIn { 0% { background:#fffde7; border-color:#f4b942; transform:translateY(-4px); opacity:0; } 100% { background:#fff; border-color:#eee; transform:translateY(0); opacity:1; } }
+.alert-icon { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+.alert-text { flex: 1; }
+.alert-title-text { font-size: 15px; font-weight: 600; color: #0a0a0a; margin-bottom: 3px; }
+.alert-body { font-size: 13px; color: #666; line-height: 1.4; }
+.alert-time { font-size: 11px; color: #bbb; flex-shrink: 0; padding-top: 2px; }
+.new-badge { display: inline-block; background: #e53935; color: #fff; font-size: 9px; font-weight: 700; padding: 2px 5px; border-radius: 4px; margin-left: 5px; letter-spacing: 0.04em; vertical-align: middle; }
+
+.bottom-nav { background: #fff; border-top: 0.5px solid #eee; display: flex; justify-content: space-around; padding: 12px 0 20px; flex-shrink: 0; }
+.nav-item { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.nav-icon { font-size: 22px; color: #ccc; }
+.nav-icon.active { color: #0a0a0a; }
+.nav-label { font-size: 10px; color: #ccc; letter-spacing: 0.03em; }
+.nav-label.active { color: #0a0a0a; font-weight: 600; }
+
+.setup-overlay { position: fixed; inset: 0; background: #0a0a0a; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px; z-index: 100; padding: 30px; text-align: center; }
+.setup-overlay p { color: #666; font-size: 14px; line-height: 1.6; max-width: 280px; }
+.setup-overlay a { color: #00c853; }
+.setup-badge { background: #e53935; color: #fff; font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 20px; }
+</style>
+</head>
+<body>
+
+<div class="screen" id="app" style="display:none">
+  <div class="status-bar"><span id="clock">9:41</span><span>●●●</span></div>
+  <div class="app-header">
+    <div>
+      <div class="app-logo">Pick<span>Up</span></div>
+      <div class="header-sub">Driver Mode</div>
+    </div>
+    <div class="online-badge">ONLINE</div>
+  </div>
+
+  <div class="map-area" id="map-area">
+    <iframe id="map-frame" src="" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+    <canvas id="cinemap"></canvas>
+    <div class="map-overlay-label" id="map-label">Los Angeles, CA</div>
+    <div class="eta-chip" id="eta-chip">4 min</div>
+    <div class="closeup-pill" id="closeup-pill">● Live</div>
+  </div>
+
+  <div class="trip-card">
+    <div class="trip-top">
+      <div>
+        <div class="passenger-name" id="pax-name">—</div>
+        <div class="passenger-meta" id="pax-meta">Waiting for passenger info…</div>
+      </div>
+      <div class="star-rating"><span class="star">★</span><span id="pax-rating">—</span></div>
+    </div>
+    <div class="trip-details">
+      <div class="trip-detail"><div class="detail-dot dot-green"></div><span id="pickup-addr">—</span></div>
+      <div class="trip-detail"><div class="detail-dot dot-red"></div><span id="dropoff-addr">—</span></div>
+    </div>
+  </div>
+
+  <div class="earnings-bar">
+    <div class="earn-item"><div class="earn-val" id="earn-today">$0.00</div><div class="earn-label">Today</div></div>
+    <div class="earn-divider"></div>
+    <div class="earn-item"><div class="earn-val" id="trip-count">0</div><div class="earn-label">Trips</div></div>
+    <div class="earn-divider"></div>
+    <div class="earn-item"><div class="earn-val" id="driver-rating">4.88</div><div class="earn-label">Rating</div></div>
+  </div>
+
+  <div class="alerts-section">
+    <div class="alerts-header">
+      <span class="alerts-title">Alerts</span>
+      <div class="alert-count-badge" id="alert-count">0</div>
+    </div>
+    <div id="alerts-list">
+      <div style="font-size:13px;color:#bbb;text-align:center;padding:20px 0">Waiting for alerts…</div>
+    </div>
+  </div>
+
+  <div class="bottom-nav">
+    <div class="nav-item"><i class="ti ti-map-pin nav-icon active"></i><span class="nav-label active">Drive</span></div>
+    <div class="nav-item"><i class="ti ti-chart-bar nav-icon"></i><span class="nav-label">Earnings</span></div>
+    <div class="nav-item"><i class="ti ti-bell nav-icon"></i><span class="nav-label">Alerts</span></div>
+    <div class="nav-item"><i class="ti ti-user nav-icon"></i><span class="nav-label">Profile</span></div>
+  </div>
+</div>
+
+<div class="setup-overlay" id="setup-overlay">
+  <div style="font-size:36px;color:#fff;font-family:'DM Sans',sans-serif;font-weight:600;letter-spacing:-0.03em">Pick<span style="color:#00c853">Up</span></div>
+  <div class="setup-badge">PHONE SCREEN</div>
+  <p id="setup-msg">Connecting to Firebase…</p>
+  <p style="color:#444;font-size:12px">Make sure both devices are on the same network and Firebase is configured.</p>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script>
+
+// ── CLOCK ──────────────────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date(), h = now.getHours(), m = now.getMinutes();
+  document.getElementById('clock').textContent = `${h%12||12}:${String(m).padStart(2,'0')}`;
+}
+updateClock(); setInterval(updateClock, 10000);
+
+// ── GOOGLE MAP ─────────────────────────────────────────────────────────
+function updateGoogleMap(location) {
+  if (!location || GOOGLE_MAPS_KEY === 'PASTE_YOUR_GOOGLE_MAPS_KEY_HERE') return;
+  document.getElementById('map-frame').src =
+    `https://www.google.com/maps/embed/v1/place?key=${GOOGLE_MAPS_KEY}&q=${encodeURIComponent(location)}&zoom=15&maptype=roadmap`;
+  document.getElementById('map-label').textContent = location;
+}
+
+// ── CINEMATIC MAP ──────────────────────────────────────────────────────
+const canvas = document.getElementById('cinemap');
+const ctx    = canvas.getContext('2d');
+let animFrame, cinemapRunning = false;
+let carX = 0, carY = 0, routeProgress = 0;
+let pulseR = 0, pulseAlpha = 0.6;
+let currentEta = '4 min';
+
+// Color palette — matches app identity
+const C = {
+  bg:        '#141824',
+  block:     '#1a1f30',
+  road:      '#222840',
+  roadMid:   '#2a3154',
+  dash:      '#303a5c',
+  route:     '#00c853',
+  routeGlow: 'rgba(0,200,83,0.15)',
+  car:       '#ffffff',
+  carInner:  '#00c853',
+  carCore:   '#ffffff',
+  dest:      '#e53935',
+  label:     'rgba(255,255,255,0.3)',
+  labelHi:   'rgba(255,255,255,0.55)',
+};
+
+// Street grid — normalized 0..1 coords
+const H_ROADS = [
+  { y: 0.18, name: 'Venice Blvd',    major: false },
+  { y: 0.36, name: 'Olympic Blvd',   major: true  },
+  { y: 0.54, name: 'Wilshire Blvd',  major: true  },
+  { y: 0.72, name: '6th Street',     major: false },
+  { y: 0.88, name: 'Cesar Chavez',   major: false },
+];
+const V_ROADS = [
+  { x: 0.10, name: 'Figueroa',  major: false },
+  { x: 0.25, name: 'Flower St', major: false },
+  { x: 0.42, name: 'Grand Ave', major: true  },
+  { x: 0.58, name: 'Hill St',   major: false },
+  { x: 0.74, name: 'Broadway',  major: true  },
+  { x: 0.88, name: 'Spring St', major: false },
+];
+
+// Route waypoints — car travels this path on loop
+const ROUTE_PTS = [
+  {x:0.10, y:0.54}, {x:0.25, y:0.54}, {x:0.42, y:0.54},
+  {x:0.42, y:0.36}, {x:0.58, y:0.36}, {x:0.74, y:0.36},
+  {x:0.74, y:0.18}, {x:0.88, y:0.18},
+];
+const DEST = { x: 0.88, y: 0.18 };
+
+function initCanvas() {
+  const area = document.getElementById('map-area');
+  const dpr  = window.devicePixelRatio || 1;
+  const W    = area.offsetWidth;
+  const H    = area.offsetHeight;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  carX = ROUTE_PTS[0].x * W;
+  carY = ROUTE_PTS[0].y * H;
+  routeProgress = 0;
+}
+
+function drawFrame() {
+  const area = document.getElementById('map-area');
+  const W = area.offsetWidth, H = area.offsetHeight;
+
+  // Background
+  ctx.fillStyle = C.bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // City blocks
+  const hY = H_ROADS.map(r => r.y * H);
+  const vX = V_ROADS.map(r => r.x * W);
+  ctx.fillStyle = C.block;
+  for (let i = 0; i < vX.length - 1; i++) {
+    for (let j = 0; j < hY.length - 1; j++) {
+      const pad = 5;
+      ctx.fillRect(vX[i] + pad, hY[j] + pad, vX[i+1] - vX[i] - pad*2, hY[j+1] - hY[j] - pad*2);
+    }
+  }
+
+  // Horizontal roads
+  H_ROADS.forEach(r => {
+    const y   = r.y * H;
+    const hw  = r.major ? 8 : 5;
+    ctx.fillStyle = C.road;
+    ctx.fillRect(0, y - hw, W, hw * 2);
+    if (r.major) {
+      ctx.strokeStyle = C.dash;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([12, 10]);
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    // Label
+    ctx.fillStyle = r.major ? C.labelHi : C.label;
+    ctx.font = `${r.major ? 600 : 400} ${r.major ? 9 : 8}px DM Sans, sans-serif`;
+    ctx.fillText(r.name, 4, y - hw - 3);
+  });
+
+  // Vertical roads
+  V_ROADS.forEach(r => {
+    const x  = r.x * W;
+    const hw = r.major ? 8 : 5;
+    ctx.fillStyle = C.road;
+    ctx.fillRect(x - hw, 0, hw * 2, H);
+    if (r.major) {
+      ctx.strokeStyle = C.dash;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([12, 10]);
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    // Rotated label
+    ctx.save();
+    ctx.translate(x + hw + 3, H - 4);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = r.major ? C.labelHi : C.label;
+    ctx.font = `${r.major ? 600 : 400} ${r.major ? 9 : 8}px DM Sans, sans-serif`;
+    ctx.fillText(r.name, 0, 0);
+    ctx.restore();
+  });
+
+  // Route pts in pixel space
+  const rp = ROUTE_PTS.map(p => ({ x: p.x * W, y: p.y * H }));
+
+  // Route glow
+  ctx.strokeStyle = C.routeGlow;
+  ctx.lineWidth   = 10;
+  ctx.lineCap     = 'round';
+  ctx.lineJoin    = 'round';
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(rp[0].x, rp[0].y);
+  for (let i = 1; i < rp.length; i++) ctx.lineTo(rp[i].x, rp[i].y);
+  ctx.stroke();
+
+  // Route line
+  ctx.strokeStyle = C.route;
+  ctx.lineWidth   = 3;
+  ctx.beginPath();
+  ctx.moveTo(rp[0].x, rp[0].y);
+  for (let i = 1; i < rp.length; i++) ctx.lineTo(rp[i].x, rp[i].y);
+  ctx.stroke();
+
+  // Dot markers on route turns
+  rp.forEach((p, i) => {
+    if (i === 0 || i === rp.length - 1) return;
+    ctx.fillStyle = C.route;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Destination pin
+  const dx = DEST.x * W, dy = DEST.y * H;
+  // Shadow
+  ctx.fillStyle = 'rgba(229,57,53,0.2)';
+  ctx.beginPath(); ctx.arc(dx, dy + 2, 12, 0, Math.PI * 2); ctx.fill();
+  // Pin body
+  ctx.fillStyle = C.dest;
+  ctx.beginPath();
+  ctx.arc(dx, dy - 10, 9, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(dx - 6, dy - 6);
+  ctx.lineTo(dx + 6, dy - 6);
+  ctx.lineTo(dx, dy + 4);
+  ctx.closePath();
+  ctx.fill();
+  // Pin white dot
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(dx, dy - 10, 3.5, 0, Math.PI * 2); ctx.fill();
+
+  // Car pulse ring
+  pulseR     += 0.7;
+  pulseAlpha -= 0.012;
+  if (pulseR > 32 || pulseAlpha <= 0) { pulseR = 0; pulseAlpha = 0.6; }
+  ctx.strokeStyle = `rgba(0,200,83,${pulseAlpha})`;
+  ctx.lineWidth   = 1.5;
+  ctx.setLineDash([]);
+  ctx.beginPath(); ctx.arc(carX, carY, pulseR, 0, Math.PI * 2); ctx.stroke();
+
+  // Car outer ring
+  ctx.fillStyle = 'rgba(255,255,255,0.15)';
+  ctx.beginPath(); ctx.arc(carX, carY, 14, 0, Math.PI * 2); ctx.fill();
+  // Car body
+  ctx.fillStyle = C.car;
+  ctx.beginPath(); ctx.arc(carX, carY, 10, 0, Math.PI * 2); ctx.fill();
+  // Car inner
+  ctx.fillStyle = C.carInner;
+  ctx.beginPath(); ctx.arc(carX, carY, 6, 0, Math.PI * 2); ctx.fill();
+  // Car core
+  ctx.fillStyle = C.carCore;
+  ctx.beginPath(); ctx.arc(carX, carY, 2.5, 0, Math.PI * 2); ctx.fill();
+
+  // Animate car
+  const segs = rp.length - 1;
+  routeProgress += 0.0018;
+  if (routeProgress > 1) routeProgress = 0;
+  const pos = routeProgress * segs;
+  const seg = Math.min(Math.floor(pos), segs - 1);
+  const t   = pos - seg;
+  carX = rp[seg].x + (rp[seg+1].x - rp[seg].x) * t;
+  carY = rp[seg].y + (rp[seg+1].y - rp[seg].y) * t;
+
+  // ETA countdown effect (decorative)
+  const etaMinutes = Math.max(1, Math.round((1 - routeProgress) * 8));
+  document.getElementById('eta-chip').textContent = etaMinutes + ' min';
+}
+
+function startCinemap() {
+  cinemapRunning = true;
+  initCanvas();
+  document.getElementById('eta-chip').style.display   = 'block';
+  document.getElementById('closeup-pill').style.display = 'block';
+  function loop() {
+    if (!cinemapRunning) return;
+    drawFrame();
+    animFrame = requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+function stopCinemap() {
+  cinemapRunning = false;
+  cancelAnimationFrame(animFrame);
+  document.getElementById('eta-chip').style.display   = 'none';
+  document.getElementById('closeup-pill').style.display = 'none';
+}
+
+// ── MAP MODE SWITCH ────────────────────────────────────────────────────
+let closeupMode = false;
+function setMapMode(isCloseup) {
+  closeupMode = isCloseup;
+  const frame = document.getElementById('map-frame');
+  if (isCloseup) {
+    frame.style.display   = 'none';
+    canvas.style.display  = 'block';
+    startCinemap();
+  } else {
+    canvas.style.display  = 'none';
+    frame.style.display   = 'block';
+    stopCinemap();
+  }
+}
+
+// ── FIREBASE ───────────────────────────────────────────────────────────
+const fbOk = FIREBASE_CONFIG.apiKey !== 'PASTE_YOUR_FIREBASE_API_KEY_HERE';
+
+if (!fbOk) {
+  document.getElementById('setup-msg').innerHTML =
+    'Firebase not configured.<br><a href="https://console.firebase.google.com" target="_blank">console.firebase.google.com →</a>';
+} else {
+  firebase.initializeApp(FIREBASE_CONFIG);
+  const db = firebase.database();
+
+  if (GOOGLE_MAPS_KEY !== 'PASTE_YOUR_GOOGLE_MAPS_KEY_HERE') updateGoogleMap('Downtown Los Angeles, CA');
+
+  db.ref('.info/connected').on('value', snap => {
+    if (snap.val()) {
+      document.getElementById('setup-overlay').style.display = 'none';
+      document.getElementById('app').style.display = 'flex';
+    }
+  });
+
+  db.ref('passenger').on('value', snap => {
+    const d = snap.val(); if (!d) return;
+    if (d.name)    document.getElementById('pax-name').textContent    = d.name;
+    if (d.rating)  document.getElementById('pax-rating').textContent  = d.rating;
+    if (d.meta)    document.getElementById('pax-meta').textContent    = d.meta;
+    if (d.pickup)  document.getElementById('pickup-addr').textContent  = d.pickup;
+    if (d.dropoff) document.getElementById('dropoff-addr').textContent = d.dropoff;
+  });
+
+  db.ref('earnings').on('value', snap => {
+    const d = snap.val(); if (!d) return;
+    if (d.today)  document.getElementById('earn-today').textContent    = d.today;
+    if (d.trips)  document.getElementById('trip-count').textContent    = d.trips;
+    if (d.rating) document.getElementById('driver-rating').textContent = d.rating;
+  });
+
+  db.ref('mapLocation').on('value', snap => {
+    const loc = snap.val();
+    if (loc && !closeupMode) updateGoogleMap(loc);
+    if (loc) document.getElementById('map-label').textContent = loc;
+  });
+
+  db.ref('closeupMode').on('value', snap => { setMapMode(snap.val() === true); });
+
+  let knownKeys = new Set();
+  db.ref('alerts').on('value', snap => {
+    const data = snap.val();
+    const list = document.getElementById('alerts-list');
+    if (!data) {
+      list.innerHTML = '<div style="font-size:13px;color:#bbb;text-align:center;padding:20px 0">No active alerts</div>';
+      document.getElementById('alert-count').textContent = '0';
+      knownKeys = new Set(); return;
+    }
+    const entries = Object.entries(data).sort((a,b) => (b[1].ts||0)-(a[1].ts||0));
+    document.getElementById('alert-count').textContent = entries.length;
+    list.innerHTML = '';
+    entries.forEach(([key, alert]) => {
+      const isNew = !knownKeys.has(key);
+      const item  = document.createElement('div');
+      item.className = 'alert-item' + (isNew ? ' new-alert' : '');
+      item.innerHTML = `
+        <div class="alert-icon" style="background:${alert.iconBg};font-size:20px">${alert.emoji}</div>
+        <div class="alert-text">
+          <div class="alert-title-text">${alert.title}${isNew?'<span class="new-badge">NEW</span>':''}</div>
+          <div class="alert-body">${alert.body}</div>
+        </div>
+        <div class="alert-time">${alert.time||'Now'}</div>`;
+      list.appendChild(item);
+      knownKeys.add(key);
+    });
+  });
+}
+</script>
+</body>
+</html>
